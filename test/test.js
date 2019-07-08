@@ -180,17 +180,8 @@ describe('Database', () => {
                 booking.push(bookRoom(locationId, start, end, type));
             }
             const result = await Promise.all(booking);
-            expect(result).to.includes(false);
-            let failed;
-            for (const val of result) {
-                if (!val) {
-                    if (failed) {
-                        throw 'More the one request failed';
-                    } else {
-                        failed = true;
-                    }
-                }
-            }
+            expect(result).to.be.an('Array');
+            expect(result.filter(res => !res)).to.have.length(1);
         });
 
         it('should return 1 room type all Dorm and Private are booked', async () => {
