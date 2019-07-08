@@ -9,6 +9,10 @@ describe('Database', () => {
         await fillDataLocationRoom();
     });
 
+    after(async () => {
+        await truncateBooking();
+    })
+
     const locationId = 1;
     const start = '2019-08-7';
     const end = '2019-08-14';
