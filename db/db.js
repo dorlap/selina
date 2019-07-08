@@ -1,33 +1,39 @@
-const { promisify } = require('util');
+const { getConnection, query } = require('./conn');
 const mysql = require('mysql');
 
-const getConnection = () => {
-    const connection = mysql.createConnection({
-        host: 'localhost',
-        user: 'root',
-        password: 'D19881987l?',
-        database: 'selina'
-    });
+/**
+ * @param {Object} param - this is object param
+ * @param {string} param.filter - this is property param
+ * @param {'ASC'|'DESC'} param.order - this is property param
+ * @returns {Promise<{id:number, country:string, city:string}[]>}
+ */
+exports.getLocations = async ({ filter, order }) => {
+    let sql = 'SELECT id, country, city FROM location';
+    if (filter) {
+        sql = mysql.format(`${sql} WHERE country LIKE ?`, `%${filter}%`);
+    }
+    if (order) {
+        order = order.toUpperCase();
+        if (order === 'ASC' || order === 'DESC') {
+            sql = `${sql} ORDER BY country ${order}, city ${order}`;
+        }
+    }
 
-    const beginTransaction = promisify(connection.beginTransaction).bind(connection);
-    const commit = promisify(connection.commit).bind(connection);
-    const rollback = promisify(connection.rollback).bind(connection);
-    const query = promisify(connection.query).bind(connection);
-    const connect = promisify(connection.connect).bind(connection);
-    const end = connection.end.bind(connection);
-    return { beginTransaction, commit, rollback, query, connect, end };
+    return await query(sql);
 }
 
-const query = async (sql, values) => {
-    const conn = getConnection();
-    await conn.connect();
-    const ret = await conn.query(sql, values);
-    conn.end();
-    return ret;
-}
-
-exports.getLocations = async () => {
-    return await query('SELECT id, country, city from location');
+/**
+ * @returns {Promise<{id:number, country:string, city:string}[]>}
+ */
+exports.getTopThreeLocations = async () => {
+    return await query(`SELECT location.id, country, city 
+    FROM (
+        SELECT count(*) AS counter, location_id FROM booking 
+        JOIN room ON booking.room_id = room.id
+        GROUP BY location_id
+        ORDER BY counter DESC
+        LIMIT 3) AS top_location
+    JOIN location ON location.id = top_location.location_id;`);
 }
 
 exports.getAvailableRooms = async (locationId, start, end) => {
@@ -41,7 +47,7 @@ exports.getAvailableRooms = async (locationId, start, end) => {
     `, [locationId, start, end, start, end, start, end]);
 }
 
-exports.book = async (locationId, start, end, type) => {
+exports.bookRoom = async (locationId, start, end, type) => {
     const conn = getConnection();
     await conn.connect();
     await conn.beginTransaction();
